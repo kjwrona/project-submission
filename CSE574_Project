@@ -1,0 +1,197 @@
+##### CSE 574 Project, Kevin Wrona and Jason Klotz #####
+
+import pandas as pd
+import keras
+import numpy as np
+import tkinter as tk
+from tkinter import *
+from tkinter import messagebox
+from sklearn import preprocessing
+from sklearn.metrics import confusion_matrix
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+
+case = 2 #For offensive data only, case =1, for offensive and defensive data case = 2
+
+
+if case == 1:
+    d = pd.read_excel(r'C:\Users\kjwro\Documents\CSE574\CompiledOffense.xlsx')
+    print(d)
+    y = d.Playoffs
+    x = d[
+    ['PF', 'Yds', 'Ply', 'Y_P', 'TO', 'FL', '1stD', 'P_Cmp', 'P_Att', 'P_Yds', 'P_TD', 'Int', 'NY_A', 'P_1stD', 'R_Att',
+     'R_Yds', 'R_TD', 'R_Y_A', 'R_1stD', 'Pen', 'Yds', '1stPy', 'EXP']]
+elif case == 2:
+    d = pd.read_excel(r'C:\Users\kjwro\Documents\CSE574\CompiledOffenseandDefense.xlsx')
+    print(d)
+    y = d.Playoffs
+    x = d[
+    ['PF', 'Yds', 'Ply', 'Y_P', 'TO', 'FL', '1stD', 'P_Cmp', 'P_Att', 'P_Yds', 'P_TD', 'Int', 'NY_A', 'P_1stD', 'R_Att',
+     'R_Yds', 'R_TD', 'R_Y_A', 'R_1stD', 'Pen', 'Yds', '1stPy', 'EXP','PF_d', 'Yds_d', 'Ply_d', 'Y_P_d', 'TO_d', 'FL_d',
+     '1stD_d', 'P_Cmp_d', 'P_Att_d', 'P_Yds_d', 'P_TD_d', 'Int_d', 'NY_A_d', 'P_1stD_d', 'R_Att_d',
+     'R_Yds_d', 'R_TD_d', 'R_Y_A_d', 'R_1stD_d', 'Pen_d', 'Yds_d', '1stPy_d', 'EXP_d']]
+
+
+
+
+### Spliting data into test and training data, data normalized using standard scaler ###
+sc = StandardScaler()
+X_train, X_test, y_train, y_test = train_test_split(x, y, test_size=0.25)
+X_train = sc.fit_transform(X_train)
+print(X_train)
+X_test = sc.fit_transform(X_test)
+
+print(X_train.shape, y_train.shape)
+print(X_test.shape, y_test.shape)
+
+### Logistic Regression ###
+
+from sklearn.linear_model import LogisticRegression
+
+# create an instance and fit the model
+logmodel = LogisticRegression()
+result = logmodel.fit(X_train, y_train)
+
+
+print('The coefficients of each of the weights are ')
+print(result.coef_)
+
+print('Model Accuracy for Logistic Regression ')
+# print(result.score(x, y))
+log_acc = result.score(X_test, y_test)*100
+print(log_acc)
+
+print(confusion_matrix(y_test, result.predict(X_test)))
+
+### Random Forest ###
+from sklearn.tree import DecisionTreeClassifier
+
+
+# Make a decision tree and train
+tree = DecisionTreeClassifier()
+tree.fit(X_train, y_train)
+rf_acc = tree.score(X_test, y_test)*100
+print(f'Model Accuracy for Random Forest: {rf_acc}')
+
+## SVM ###
+from sklearn import svm
+clf = svm.SVC(kernel='rbf')
+clf.fit(X_train, y_train)
+y_pred = clf.predict(X_test)
+from sklearn import metrics
+svm_acc = metrics.accuracy_score(y_test, y_pred)*100
+print("Model Accuracy for SVM:",svm_acc)
+
+## Neural Network ###
+if case ==1:
+
+    x = d.iloc[:, :23].values
+
+    y = d.iloc[:, 25:26].values
+
+elif case == 2:
+
+    x = d.iloc[:, :46].values
+
+    y = d.iloc[:, 50:51].values
+# print(x)
+
+x = sc.fit_transform(x)
+# print(x)
+
+X_train,X_test,y_train,y_test = train_test_split(x,y,test_size = 0.25)
+
+
+from sklearn.preprocessing import OneHotEncoder
+ohe = OneHotEncoder()
+y_train = ohe.fit_transform(y_train).toarray()
+y_test = ohe.fit_transform(y_test).toarray()
+# print(y_train)
+# print(y)
+#Dependencies
+
+from keras.models import Sequential
+from keras.layers import Dense
+# Neural network
+model = Sequential()
+if case == 1:
+    model.add(Dense(16, input_dim=23, activation='relu'))
+elif case == 2:
+    model.add(Dense(16, input_dim=46, activation='relu'))
+
+model.add(Dense(12, activation='relu'))
+model.add(Dense(2, activation='softmax'))
+model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+history = model.fit(X_train, y_train, epochs=100, batch_size=64)
+
+y_pred = model.predict(X_test)
+#Converting predictions to label
+pred = list()
+for i in range(len(y_pred)):
+    pred.append(np.argmax(y_pred[i]))
+#Converting one hot encoded test label to label
+test = list()
+for i in range(len(y_test)):
+    test.append(np.argmax(y_test[i]))
+
+from sklearn.metrics import accuracy_score
+nn_acc = accuracy_score(pred,test)*100
+print('Neural Network Accuracy is:', nn_acc)
+
+
+#### UI For Program, Select Model We Want to See Accuracy For ####
+class App(tk.Frame):
+
+    def __init__(win, master):
+
+        win.master = master
+
+        # win = tk.Tk()
+        # win.title("Model Selector")
+        lbl1 = tk.Label(win.master, text='Select a Model')
+        # lbl1.grid(row=0, column = 0, columnspan = 3)
+        global var
+
+        var = tk.StringVar()
+        var.set("Logistic Regression")
+
+        win.model = tk.OptionMenu(win.master, var, "Logistic Regression", "Support Vector Machine", "Neural Network",
+                                  "Random Forest")
+        win.model.grid(row = 1, column = 1)
+        # tk.Label(win.master, text='Accuracy').grid(row=1, column = 1)
+
+        btn1 = tk.Button(win.master, text="Display Accuracy", command=win.dispaccuracy)
+        btn1.grid(row=2, column=1)
+
+        win.lbl2 = tk.Label(win.master, text="Accuracy is ")
+        win.lbl2.grid(row=3, column=1)
+
+    def dispaccuracy(win):
+        global var
+
+        acc = var.get()
+
+        if acc == "Logistic Regression":
+
+            win.lbl2.config(text="Accuracy is {}".format(log_acc))
+
+        elif acc == "Random Forest":
+
+            win.lbl2.config(text="Accuracy is {}".format(rf_acc))
+
+        elif acc == "Support Vector Machine":
+
+            win.lbl2.config(text="Accuracy is {}".format(svm_acc))
+
+        else:
+
+            win.lbl2.config(text="Accuracy is {}".format(nn_acc))
+
+
+
+root = tk.Tk()
+root.geometry('150x150')
+myapp = App(root)
+root.mainloop()
+
+
